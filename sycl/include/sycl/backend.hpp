@@ -185,6 +185,22 @@ get_native<backend::ext_oneapi_cuda, device>(const device &Obj) {
 }
 #endif
 
+#if SYCL_EXT_ONEAPI_BACKEND_HIP
+template <>
+inline backend_return_t<backend::ext_oneapi_hip, device>
+get_native<backend::ext_oneapi_hip, device>(const device &Obj) {
+  // TODO use SYCL 2020 exception when implemented
+  if (Obj.get_backend() != backend::ext_oneapi_hip) {
+    throw sycl::runtime_error(errc::backend_mismatch, "Backends mismatch",
+                              PI_ERROR_INVALID_OPERATION);
+  }
+  // HIP uses a 32-bit int instead of an opaque pointer like other backends,
+  // so we need a specialization with static_cast instead of reinterpret_cast.
+  return static_cast<backend_return_t<backend::ext_oneapi_hip, device>>(
+      Obj.getNative());
+}
+#endif
+
 // Native handle of an accessor should be accessed through interop_handler
 template <backend BackendName, typename DataT, int Dimensions,
           access::mode AccessMode, access::target AccessTarget,
