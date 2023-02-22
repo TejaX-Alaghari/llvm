@@ -1,4 +1,4 @@
-//===------- Interpcpp - Interpreter for the constexpr VM ------*- C++ -*-===//
+//===------- Interp.cpp - Interpreter for the constexpr VM ------*- C++ -*-===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -331,17 +331,18 @@ bool CheckInit(InterpState &S, CodePtr OpPC, const Pointer &Ptr) {
   return true;
 }
 
-bool CheckCallable(InterpState &S, CodePtr OpPC, Function *F) {
-  const SourceLocation &Loc = S.Current->getLocation(OpPC);
+bool CheckCallable(InterpState &S, CodePtr OpPC, const Function *F) {
 
   if (F->isVirtual()) {
     if (!S.getLangOpts().CPlusPlus20) {
+      const SourceLocation &Loc = S.Current->getLocation(OpPC);
       S.CCEDiag(Loc, diag::note_constexpr_virtual_call);
       return false;
     }
   }
 
   if (!F->isConstexpr()) {
+    const SourceLocation &Loc = S.Current->getLocation(OpPC);
     if (S.getLangOpts().CPlusPlus11) {
       const FunctionDecl *DiagDecl = F->getDecl();
 

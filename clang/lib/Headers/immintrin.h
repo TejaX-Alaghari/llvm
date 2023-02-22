@@ -229,7 +229,6 @@
 #include <avx512vlfp16intrin.h>
 #endif
 
-#ifndef __SYCL_DEVICE_ONLY__
 #if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
     defined(__AVX512BF16__)
 #include <avx512bf16intrin.h>
@@ -238,7 +237,6 @@
 #if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
     (defined(__AVX512VL__) && defined(__AVX512BF16__))
 #include <avx512vlbf16intrin.h>
-#endif
 #endif
 
 #if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
@@ -528,11 +526,6 @@ _storebe_i64(void * __P, long long __D) {
 #if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
     defined(__AMXFP16__)
 #include <amxfp16intrin.h>
-#endif
-
-#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
-    defined(__CMPCCXADD__)
-#include <cmpccxaddintrin.h>
 #endif
 
 #if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \

@@ -83,7 +83,7 @@ bool CheckInvoke(InterpState &S, CodePtr OpPC, const Pointer &Ptr);
 bool CheckInit(InterpState &S, CodePtr OpPC, const Pointer &Ptr);
 
 /// Checks if a method can be called.
-bool CheckCallable(InterpState &S, CodePtr OpPC, Function *F);
+bool CheckCallable(InterpState &S, CodePtr OpPC, const Function *F);
 
 /// Checks the 'this' pointer.
 bool CheckThis(InterpState &S, CodePtr OpPC, const Pointer &This);
@@ -569,7 +569,10 @@ bool Const(InterpState &S, CodePtr OpPC, const T &Arg) {
 
 template <PrimType Name, class T = typename PrimConv<Name>::T>
 bool GetLocal(InterpState &S, CodePtr OpPC, uint32_t I) {
-  S.Stk.push<T>(S.Current->getLocal<T>(I));
+  const Pointer &Ptr = S.Current->getLocalPointer(I);
+  if (!CheckLoad(S, OpPC, Ptr))
+    return false;
+  S.Stk.push<T>(Ptr.deref<T>());
   return true;
 }
 
@@ -912,6 +915,8 @@ bool Store(InterpState &S, CodePtr OpPC) {
   const Pointer &Ptr = S.Stk.peek<Pointer>();
   if (!CheckStore(S, OpPC, Ptr))
     return false;
+  if (!Ptr.isRoot())
+    Ptr.initialize();
   Ptr.deref<T>() = Value;
   return true;
 }
@@ -922,6 +927,8 @@ bool StorePop(InterpState &S, CodePtr OpPC) {
   const Pointer &Ptr = S.Stk.pop<Pointer>();
   if (!CheckStore(S, OpPC, Ptr))
     return false;
+  if (!Ptr.isRoot())
+    Ptr.initialize();
   Ptr.deref<T>() = Value;
   return true;
 }
@@ -932,6 +939,8 @@ bool StoreBitField(InterpState &S, CodePtr OpPC) {
   const Pointer &Ptr = S.Stk.peek<Pointer>();
   if (!CheckStore(S, OpPC, Ptr))
     return false;
+  if (!Ptr.isRoot())
+    Ptr.initialize();
   if (auto *FD = Ptr.getField()) {
     Ptr.deref<T>() = Value.truncate(FD->getBitWidthValue(S.getCtx()));
   } else {
@@ -946,6 +955,8 @@ bool StoreBitFieldPop(InterpState &S, CodePtr OpPC) {
   const Pointer &Ptr = S.Stk.pop<Pointer>();
   if (!CheckStore(S, OpPC, Ptr))
     return false;
+  if (!Ptr.isRoot())
+    Ptr.initialize();
   if (auto *FD = Ptr.getField()) {
     Ptr.deref<T>() = Value.truncate(FD->getBitWidthValue(S.getCtx()));
   } else {
@@ -1056,7 +1067,12 @@ template <class T, bool Add> bool OffsetHelper(InterpState &S, CodePtr OpPC) {
   // Offset is valid - compute it on unsigned.
   int64_t WideIndex = static_cast<int64_t>(Index);
   int64_t WideOffset = static_cast<int64_t>(Offset);
-  int64_t Result = Add ? (WideIndex + WideOffset) : (WideIndex - WideOffset);
+  int64_t Result;
+  if constexpr (Add)
+    Result = WideIndex + WideOffset;
+  else
+    Result = WideIndex - WideOffset;
+
   S.Stk.push<Pointer>(Ptr.atIndex(static_cast<unsigned>(Result)));
   return true;
 }
@@ -1140,6 +1156,12 @@ inline bool This(InterpState &S, CodePtr OpPC) {
     return false;
 
   S.Stk.push<Pointer>(This);
+  return true;
+}
+
+inline bool RVOPtr(InterpState &S, CodePtr OpPC) {
+  assert(S.Current->getFunction()->hasRVO());
+  S.Stk.push<Pointer>(S.Current->getRVOPtr());
   return true;
 }
 
@@ -1238,8 +1260,10 @@ inline bool Call(InterpState &S, CodePtr &PC, const Function *Func) {
     if (!CheckInvoke(S, PC, NewFrame->getThis())) {
       return false;
     }
-    // TODO: CheckCallable
   }
+
+  if (!CheckCallable(S, PC, Func))
+    return false;
 
   InterpFrame *FrameBefore = S.Current;
   S.Current = NewFrame.get();

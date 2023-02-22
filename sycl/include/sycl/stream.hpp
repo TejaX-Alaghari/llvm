@@ -11,6 +11,8 @@
 #include <sycl/builtins.hpp>
 #include <sycl/detail/defines.hpp>
 #include <sycl/detail/export.hpp>
+#include <sycl/detail/owner_less_base.hpp>
+#include <sycl/ext/oneapi/weak_object_base.hpp>
 #include <sycl/handler.hpp>
 
 namespace sycl {
@@ -739,7 +741,8 @@ inline __width_manipulator__ setw(int Width) {
 /// vector and SYCL types to the console.
 ///
 /// \ingroup sycl_api
-class __SYCL_EXPORT __SYCL_SPECIAL_CLASS __SYCL_TYPE(stream) stream {
+class __SYCL_EXPORT __SYCL_SPECIAL_CLASS __SYCL_TYPE(stream) stream
+    : public detail::OwnerLessBase<stream> {
 public:
 #ifdef __SYCL_DEVICE_ONLY__
   // Default constructor for objects later initialized with __init member.
@@ -754,8 +757,16 @@ public:
   stream(size_t BufferSize, size_t MaxStatementSize, handler &CGH,
          const property_list &PropList);
 
+  size_t size() const noexcept;
+
+  size_t get_work_item_buffer_size() const;
+
+  __SYCL2020_DEPRECATED(
+      "get_size() is deprecated since SYCL 2020. Please use size() instead.")
   size_t get_size() const;
 
+  __SYCL2020_DEPRECATED("get_max_statement_size() is deprecated since SYCL "
+                        "2020. Please use get_work_item_buffer_size() instead.")
   size_t get_max_statement_size() const;
 
   size_t get_precision() const { return Precision; }
@@ -962,7 +973,7 @@ private:
                                   const h_item<Dimensions> &RHS);
 };
 
-#if __cplusplus >= 201703L && (!defined(_HAS_STD_BYTE) || _HAS_STD_BYTE != 0)
+#if (!defined(_HAS_STD_BYTE) || _HAS_STD_BYTE != 0)
 // Byte (has to be converted to a numeric value)
 template <typename T>
 inline std::enable_if_t<std::is_same<T, std::byte>::value, const stream &>
@@ -970,7 +981,7 @@ operator<<(const stream &, const T &) {
   static_assert(std::is_integral<T>(),
                 "Convert the byte to a numeric value using std::to_integer");
 }
-#endif // __cplusplus >= 201703L
+#endif
 
 // Character
 inline const stream &operator<<(const stream &Out, const char C) {
